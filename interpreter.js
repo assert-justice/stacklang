@@ -4,6 +4,9 @@ class Interpreter{
     constructor(){
         this.parser = new Parser();
         this.clear();
+        this.numRegisters = 8;
+        this.maxValue = 9999;
+        this.minValue = -9999;
         this.opcodes = {
             bin:{'+': ()=>this.bin((a,b)=>a+b),
                 '-': ()=>this.bin((a,b)=>a-b),
@@ -30,7 +33,7 @@ class Interpreter{
                 },
                 'save': ()=>{
                     const dest = this.stack.pop();
-                    const val = this.stack.pop();
+                    const val = this.mod(this.stack.pop(), this.numRegisters);
                     this.mem[dest] = val;
                 },},
             unary:{'neg': ()=>this.stack[this.stack.length-1] *= -1,
@@ -41,7 +44,8 @@ class Interpreter{
                 'out': ()=>this.outbox.push(this.stack.pop()),
                 'load': ()=>{
                     const dest = this.stack.pop();
-                    this.stack.push(this.mem[dest] ? this.mem[dest] : 0);
+                    const val = this.mem[dest] ? this.mem[dest] : 0;
+                    this.stack.push(this.mod(val, this.numRegisters));
                 },
                 'sez': ()=>{if(this.stack.pop() === 0)this.ip++;},
                 'snz': ()=>{if(this.stack.pop() !== 0)this.ip++;},
@@ -64,6 +68,18 @@ class Interpreter{
     isOpcode(opcode){
         return Object.values(this.opcodes).some(obj => obj[opcode]);
     }
+    mod(a,b){
+        // True modulo function
+        let m = a%b;
+        if (m < 0) {
+            m = (b < 0) ? m - b : m + b;
+        }
+        return m;
+    }
+    trunc(n){
+        // Truncate numbers into the expected range. No overflows.
+        return Math.min(Math.max(n, this.minValue), this.maxValue);
+    }
     assemble(src){
         const tokens = this.parser.parse(src);
         const me = this;
@@ -78,7 +94,6 @@ class Interpreter{
                 return;
             }
             const label = tokens[i].opcode;
-            console.log(label);
             if(me.isOpcode(label)){
                 me.error(`Label names cannot be opcodes`);
                 return;
@@ -156,7 +171,7 @@ class Interpreter{
     bin(fun){
         const b = this.stack.pop();
         const a = this.stack.pop();
-        this.stack.push(fun(a,b));
+        this.stack.push(this.trunc(fun(a,b)));
     }
     cycle(){
         if(this.ip > this.tokens.length) this.halted = true;
