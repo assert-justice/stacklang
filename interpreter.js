@@ -1,6 +1,9 @@
+const Parser = require('./parser');
+
 class Interpreter{
     constructor(){
-        this.load([]);
+        this.parser = new Parser();
+        this.clear();
         this.opcodes = {
             bin:{'+': ()=>this.bin((a,b)=>a+b),
                 '-': ()=>this.bin((a,b)=>a-b),
@@ -61,37 +64,39 @@ class Interpreter{
     isOpcode(opcode){
         return Object.values(this.opcodes).some(obj => obj[opcode]);
     }
-    assemble(tokens){
+    assemble(src){
+        const tokens = this.parser.parse(src);
+        const me = this;
         const newTokens = [];
         const labels = {};
-        this.jumps = [];
+        const jumps = [];
         let i;
         function consumeLabel(){
             i++;
             if(i === tokens.length){
-                this.error('Expected a label, instead reached eof');
+                me.error('Expected a label, instead reached eof');
                 return;
             }
-            i++;
-            const label = tokens[i].op;
-            if(this.isOpcode(label)){
-                this.error(`Label names cannot be opcodes`);
+            const label = tokens[i].opcode;
+            console.log(label);
+            if(me.isOpcode(label)){
+                me.error(`Label names cannot be opcodes`);
                 return;
             }
             return label;
         }
         for (i = 0; i < tokens.length; i++) {
             this.token = tokens[i];
-            const {op, val} = this.token;
-            if(op === 'mark'){
+            const {opcode, val} = this.token;
+            if(opcode === 'mark'){
                 const label = consumeLabel();
                 if(label){labels[label] = newTokens.length;}
             }
-            else if(!this.isOpcode(op)){
-                this.error(`'${op}' is not a valid opcode`);
+            else if(!this.isOpcode(opcode)){
+                this.error(`'${opcode}' is not a valid opcode`);
                 return;
             }
-            else if(op === 'jmp'){
+            else if(opcode === 'jmp'){
                 this.token.val = consumeLabel();
                 jumps.push(this.token);
                 newTokens.push(this.token);
@@ -102,17 +107,23 @@ class Interpreter{
             if(this.errorMsg) return;
         }
         for (const jump of jumps) {
-            if(!labels[jump.val]){
+            if(labels[jump.val] === undefined){
                 this.token = jump;
                 this.error(`'${jump.val}' is not a valid label`);
                 return;
             }
             jump.val = labels[jump.val];
         }
-        this.tokens = newTokens;
+        console.log(newTokens);
+        return newTokens;
     }
-    load(tokens){
-        this.tokens = tokens;
+    load(src, inbox = null, expected = null){
+        this.clear();
+        this.tokens = this.assemble(src);
+        this.inbox = inbox ? inbox : [];
+    }
+    clear(){
+        this.tokens = [];
         this.ip = 0;
         this.stack = [];
         this.mem = {};
@@ -132,7 +143,7 @@ class Interpreter{
         console.log('Memory:', this.mem);
     }
     error(msg){
-        console.log(msg);
+        console.log(`Error: ${msg} on line ${this.token.line}.`);
         this.errorMsg = msg;
         this.halted = true;
     }
