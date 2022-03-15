@@ -62,6 +62,8 @@ class Interpreter{
                 'lit': ()=>this.stack.push(this.token.val),
                 'noop': ()=>{/* Left intentionally empty. */},
                 'dump': this.dump,
+                'rand': this.rand,
+                'empty': ()=>{while(this.stack.length > 0)this.outbox.push(this.stack.pop());}
             }
         };
     }
@@ -79,6 +81,9 @@ class Interpreter{
     trunc(n){
         // Truncate numbers into the expected range. No overflows.
         return Math.min(Math.max(n, this.minValue), this.maxValue);
+    }
+    rand(min = this.minValue, max = this.maxValue){
+        return (max - min) * Math.random() + min;
     }
     assemble(src){
         const tokens = this.parser.parse(src);
