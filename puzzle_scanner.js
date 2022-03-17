@@ -36,4 +36,25 @@ function scanPuzzle(src){
     return {id, title, description, maxCycles, inputs, solutions};
 }
 
-module.exports = scanPuzzle;
+function scanScript(src){
+    const start = [0];
+    const scriptSrc = grab(src, start, 'SCRIPT:', ['IN', 'MODULE', 'END']);
+    const input = grab(src, start, 'IN:', ['MODULE', 'END']);
+    const modules = [];
+    while(true){
+        const module = grab(src, start, 'MODULE:', ['MODULE', 'END']);
+        if(!module) break;
+        modules.push(module);
+    }
+    return {scriptSrc, input, modules};
+}
+
+function scanMacro(src){
+    const start = [0];
+}
+
+module.exports = {
+    scanPuzzle,
+    scanScript,
+    scanMacro,
+};

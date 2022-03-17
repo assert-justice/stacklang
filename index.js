@@ -1,5 +1,5 @@
 const load = require('./loader');
-const scanPuzzle = require('./puzzle_scanner');
+const {scanPuzzle, scanScript} = require('./puzzle_scanner');
 const test = require('./test');
 const Interpreter = require('./interpreter');
 
@@ -10,7 +10,12 @@ function runTest(solutionSrc, puzzleSrc){
 
 function runScript(solutionSrc){
     const interpreter = new Interpreter();
-    interpreter.load(solutionSrc);
+    const solution = scanScript(solutionSrc);
+    console.log(solution);
+    interpreter.load(solution.input);
+    interpreter.run();
+    const inbox = interpreter.outbox;
+    interpreter.load(solution.scriptSrc, inbox);
     interpreter.run();
     console.log(interpreter.outbox);
 }
