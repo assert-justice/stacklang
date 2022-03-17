@@ -7,18 +7,19 @@ class Interpreter{
         this.numRegisters = 8;
         this.maxValue = 9999;
         this.minValue = -9999;
+        this.debug = false;
         this.opcodes = {
-            bin:{'+': ()=>this.bin((a,b)=>a+b),
-                '-': ()=>this.bin((a,b)=>a-b),
-                '*': ()=>this.bin((a,b)=>a*b),
-                '/': ()=>this.bin((a,b)=>{
+            bin:{'add': ()=>this.bin((a,b)=>a+b),
+                'sub': ()=>this.bin((a,b)=>a-b),
+                'mul': ()=>this.bin((a,b)=>a*b),
+                'div': ()=>this.bin((a,b)=>{
                     if(b === 0){
                         this.error('Attempted to divide by zero');
                         return 0;
                     }
                     else{return Math.trunc(a/b);}
                 }),
-                '%': ()=>this.bin((a,b)=>{
+                'rem': ()=>this.bin((a,b)=>{
                     if(b === 0){
                         this.error('Attempted to divide by zero');
                         return 0;
@@ -31,21 +32,16 @@ class Interpreter{
                     this.stack.push(b);
                     this.stack.push(a);
                 },
-                'save': ()=>{
-                    const dest = this.stack.pop();
-                    const val = this.mod(this.stack.pop(), this.numRegisters);
-                    this.mem[dest] = val;
-                },},
+                'rand': ()=>this.bin((a,b)=>this.rand(a, b)),
+            },
             unary:{'neg': ()=>this.stack[this.stack.length-1] *= -1,
                 'dup': ()=>this.stack.push(this.stack[this.stack.length-1]),
-                'inc': ()=>this.stack[this.stack.length-1]++,
-                'dec': ()=>this.stack[this.stack.length-1]--,
                 'del': ()=>this.stack.pop(),
                 'out': ()=>this.outbox.push(this.stack.pop()),
-                'load': ()=>{
-                    const dest = this.stack.pop();
-                    const val = this.mem[dest] ? this.mem[dest] : 0;
-                    this.stack.push(this.mod(val, this.numRegisters));
+                'sav': ()=>{
+                    const dest = this.token.val;
+                    const val = this.stack.pop();
+                    this.mem[dest] = val;
                 },
                 'sez': ()=>{if(this.stack.pop() === 0)this.ip++;},
                 'snz': ()=>{if(this.stack.pop() !== 0)this.ip++;},
@@ -54,21 +50,26 @@ class Interpreter{
             },    
             nullary:{
                 'in': ()=>{
-                    if(this.inbox.length === 0){this.halted = true;}
+                    if(this.inbox.length === 0){this.halt();}
                     else{this.stack.push(this.inbox.pop());}
                 },
                 'rev': ()=>this.stack.reverse(),
                 'jmp': ()=>this.ip = this.token.val,
                 'lit': ()=>this.stack.push(this.token.val),
+                'lod': ()=>this.stack.push(this.mem[this.token.val]),
                 'noop': ()=>{/* Left intentionally empty. */},
-                'dump': this.dump,
-                'rand': this.rand,
-                'empty': ()=>{while(this.stack.length > 0)this.outbox.push(this.stack.pop());}
+                'dump': ()=>this.dump(),
+                'empty': ()=>{while(this.stack.length > 0)this.outbox.push(this.stack.pop());},
+                'halt': ()=>this.halt,
             }
         };
     }
     isOpcode(opcode){
         return Object.values(this.opcodes).some(obj => obj[opcode]);
+    }
+    halt(){
+        this.halted = true;
+        // maybe add more side effects later
     }
     mod(a,b){
         // True modulo function
@@ -82,8 +83,8 @@ class Interpreter{
         // Truncate numbers into the expected range. No overflows.
         return Math.min(Math.max(n, this.minValue), this.maxValue);
     }
-    rand(min = this.minValue, max = this.maxValue){
-        return (max - min) * Math.random() + min;
+    rand(min, max){
+        return Math.floor((max - min) * Math.random()) + min;
     }
     assemble(src){
         const tokens = this.parser.parse(src);
@@ -110,7 +111,8 @@ class Interpreter{
             const {opcode, val} = this.token;
             if(opcode === 'mark'){
                 const label = consumeLabel();
-                if(label){labels[label] = newTokens.length;}
+                if(label){this.error(`${opcode} expects `)}
+                else{labels[label] = newTokens.length;}
             }
             else if(!this.isOpcode(opcode)){
                 this.error(`'${opcode}' is not a valid opcode`);
@@ -120,6 +122,17 @@ class Interpreter{
                 this.token.val = consumeLabel();
                 jumps.push(this.token);
                 newTokens.push(this.token);
+            }
+            else if(opcode === 'sav' || opcode === 'lod'){
+                i++;
+                const register = tokens[i];
+                if(!register || register.type !== 'register'){
+                    this.error(`${opcode} must be followed by a valid register name`);
+                }
+                else {
+                    this.token.val = register.val;
+                    newTokens.push(this.token);
+                }
             }
             else{
                 newTokens.push(this.token);
@@ -134,13 +147,18 @@ class Interpreter{
             }
             jump.val = labels[jump.val];
         }
-        console.log(newTokens);
         return newTokens;
+    }
+    printTokens(){
+        for (let i = 0; i < this.tokens.length; i++) {
+            const token = this.tokens[i];
+            console.log(i,':',token);
+        }
     }
     load(src, inbox = null, expected = null){
         this.clear();
         this.tokens = this.assemble(src);
-        this.inbox = inbox ? inbox : [];
+        this.inbox = inbox ? [...inbox] : [];
     }
     clear(){
         this.tokens = [];
@@ -165,12 +183,12 @@ class Interpreter{
     error(msg){
         console.log(`Error: ${msg} on line ${this.token.line}.`);
         this.errorMsg = msg;
-        this.halted = true;
+        this.halt();
     }
     stackCheck(minLength){
         if(this.stack.length < minLength){
-            const {op} = this.token;
-            this.error(`${op} requires a stack size of at least ${minLength} but the current stack length is ${this.stack.length}`);
+            const {opcode} = this.token;
+            this.error(`${opcode} requires a stack size of at least ${minLength} but the current stack length is ${this.stack.length}`);
         }
     }
     bin(fun){
@@ -179,21 +197,37 @@ class Interpreter{
         this.stack.push(this.trunc(fun(a,b)));
     }
     cycle(){
-        if(this.ip > this.tokens.length) this.halted = true;
+        if(this.ip >= this.tokens.length) {this.halt(); return;}
         if(this.halted) return;
+        this.cycles++;
         this.token = this.tokens[this.ip];
         this.ip++;
-        const {op} = this.token;
-        if(this.opcodes.bin.includes(op)){
+        const {opcode} = this.token;
+        this.stackCheck(opcode);
+        let func
+        if(func = this.opcodes.bin[opcode]){
             this.stackCheck(2);
         }
-        else if(this.opcodes.unary.includes(op)){
+        else if( func = this.opcodes.unary[opcode]){
             this.stackCheck(1);
         }
-        else if(!this.opcodes.nullary.includes(op)){
-            this.error(`'${op}' is not a valid opcode.`);
+        else if(func = this.opcodes.nullary[opcode]){}
+        else{
+            this.error(`'${opcode}' is not a valid opcode.`);
         }
-        if(!this.halted) this.opcodes[op]();
+        if(!this.halted) func();
+        if(this.debug){
+            console.log(opcode, this.stack);
+        }
+    }
+    run(maxCycles = Infinity, debug = false){
+        this.debug = debug;
+        for(let i = 0; i < maxCycles; i++){
+            if(this.halted) break;
+            this.cycle();
+        }
+        if(!this.halted) this.error('Maximum cycle count exceeded!');
+        this.debug = false;
     }
 }
 

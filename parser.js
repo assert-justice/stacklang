@@ -6,11 +6,11 @@ class Parser{
         this.errorMsg = msg;
         console.log(`Parse error: ${msg} on line ${this.line}.`);
     }
-    addToken(opcode = null, val = 0){
+    addToken(type, opcode = null, val = 0){
         if(!opcode){
             opcode = this.src.slice(this.start, this.current);
         }
-        this.tokens.push({opcode, val, line: this.line});
+        this.tokens.push({type, opcode, val, line: this.line});
     }
     isEof(){return this.current >= this.src.length;}
     peek(){return this.src[this.current];}
@@ -36,7 +36,7 @@ class Parser{
         }
         const val = +this.src.slice(this.start, this.current);
         if(isNaN(val)) return;
-        this.addToken('lit', val);
+        this.addToken('lit','lit', val);
     }
     ident(){
         while(!this.isEof()){
@@ -44,7 +44,13 @@ class Parser{
             if(!this.isAlphaNumeric(c)) break;
             this.advance();
         }
-        this.addToken();
+        this.addToken('ident');
+    }
+    register(){
+        const c = this.advance();
+        if(this.isNumeric(c)){
+            this.addToken('register', 'register', +c);
+        }
     }
     parse(src){
         this.src = src;
@@ -59,9 +65,10 @@ class Parser{
             if(' \t\r'.includes(c)){}
             else if(c === '\n'){this.line++;}
             else if(c === ';'){this.comment();}
-            else if('+-*/%'.includes(c)){
-                this.addToken();
-            }
+            else if(c === '$'){this.register();}
+            // else if('+-*/%'.includes(c)){
+            //     this.addToken();
+            // }
             else if(this.isNumeric(c)){this.number();}
             else if(this.isAlpha(c)){this.ident();}
             else{this.error(`Unexpected character '${c}'`);}
