@@ -51,6 +51,14 @@ function scanScript(src){
 
 function scanMacro(src){
     const start = [0];
+    const macros = [];
+    while(true){
+        const name = grab(src, start, 'DEF:', ['SRC']);
+        if(!name)break;
+        const code = grab(src, start, 'SRC:', ['DEF','END']);
+        macros.push({name, code});
+    }
+    return macros;
 }
 
 module.exports = {

@@ -1,0 +1,15 @@
+DEF: RAND_N
+SRC: 100 neg 100 rand
+
+DEF: RAND_NZ
+SRC: 1 100 rand
+0 2 rand
+sez neg
+
+DEF: RAND_SEQ
+SRC: rand ; expects caller to provide min and max length
+mark loop
+#RAND_NZ out
+1 sub dup sez jmp top del
+
+END
