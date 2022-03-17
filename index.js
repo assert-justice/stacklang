@@ -1,5 +1,5 @@
 const load = require('./loader');
-const {scanPuzzle, scanScript} = require('./puzzle_scanner');
+const {scanPuzzle, scanScript, scanMacro} = require('./puzzle_scanner');
 const test = require('./test');
 const Interpreter = require('./interpreter');
 
@@ -15,7 +15,7 @@ function runScript(solutionSrc){
     interpreter.load(solution.input);
     interpreter.run();
     const inbox = interpreter.outbox;
-    interpreter.load(solution.scriptSrc, inbox);
+    interpreter.load(solution.scriptSrc, [], inbox);
     interpreter.run();
     console.log(interpreter.outbox);
 }
@@ -25,11 +25,9 @@ function main(){
     const solutionSrc = load(solutionFname);
     const puzzleFname = process.argv[4] || 'puzzles/test_puzzle.sp';
     const puzzleSrc = load(puzzleFname);
+    const macros = scanMacro(load('macros/dev.sm'));
     if(process.argv[2] === 'test'){
         runTest(solutionSrc, puzzleSrc);
-    }
-    else if(process.argv[2] === 'check'){
-        runTest(null, puzzleSrc);
     }
     else{
         runScript(solutionSrc);

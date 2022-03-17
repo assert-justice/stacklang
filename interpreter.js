@@ -155,7 +155,7 @@ class Interpreter{
             console.log(i,':',token);
         }
     }
-    load(src, inbox = null, expected = null){
+    load(src, macros = [], inbox = null, expected = null){
         this.clear();
         this.tokens = this.assemble(src);
         this.inbox = inbox ? [...inbox] : [];
