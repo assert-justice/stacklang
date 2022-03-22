@@ -1,5 +1,3 @@
-const { endianness } = require("os");
-
 function grab(src, start, seek, ends){
     let idx = src.indexOf(seek, start[0]);
     if(idx === -1) return null;
@@ -20,7 +18,13 @@ function scanPuzzle(src){
     const id = grab(src, start, 'ID:', ['TITLE']);
     const title = grab(src, start, 'TITLE:', ['DESCRIPTION']);
     const description = grab(src, start, 'DESCRIPTION:', ['MAX_CYCLES', 'IN']);
-    const maxCycles = +grab(src, start, 'MAX_CYCLES', ['IN']) || 1_000_000;
+    const maxCycles = +grab(src, start, 'MAX_CYCLES', ['IN','DEF']) || 1_000_000;
+    const macros = [];
+    while(true){
+        const macro = grab(src, start, 'DEF:', ['DEF', 'IN']);
+        if(!macro)break;
+        macros.push(macro);
+    }
     const inputs = [];
     while(true){
         const input = grab(src, start, 'IN:', ['IN', 'SOLUTION']);
@@ -33,12 +37,18 @@ function scanPuzzle(src){
         if(!solution) break;
         solutions.push(solution);
     }
-    return {id, title, description, maxCycles, inputs, solutions};
+    return {id, title, description, maxCycles, macros, inputs, solutions};
 }
 
 function scanScript(src){
     const start = [0];
     const scriptSrc = grab(src, start, 'SCRIPT:', ['IN', 'MODULE', 'END']);
+    const macros = [];
+    while(true){
+        const macro = grab(src, start, 'DEF:', ['DEF', 'MODULE', 'IN', 'END']);
+        if(!macro)break;
+        macros.push(macro);
+    }
     const input = grab(src, start, 'IN:', ['MODULE', 'END']);
     const modules = [];
     while(true){
@@ -46,20 +56,20 @@ function scanScript(src){
         if(!module) break;
         modules.push(module);
     }
-    return {scriptSrc, input, modules};
+    return {scriptSrc, macros, input, modules};
 }
 
-function scanMacro(src){
-    const start = [0];
-    const macros = [];
-    while(true){
-        const name = grab(src, start, 'DEF:', ['SRC']);
-        if(!name)break;
-        const code = grab(src, start, 'SRC:', ['DEF','END']);
-        macros.push({name, code});
-    }
-    return macros;
-}
+// function scanMacro(src){
+//     const start = [0];
+//     const macros = [];
+//     while(true){
+//         const name = grab(src, start, 'DEF:', ['SRC']);
+//         if(!name)break;
+//         const code = grab(src, start, 'SRC:', ['DEF','END']);
+//         macros.push({name, code});
+//     }
+//     return macros;
+// }
 
 module.exports = {
     scanPuzzle,

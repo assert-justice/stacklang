@@ -16,7 +16,7 @@ function runScript(solutionSrc){
     interpreter.run();
     const inbox = interpreter.outbox;
     interpreter.load(solution.scriptSrc, [], inbox);
-    interpreter.run();
+    interpreter.run(1000000, true);
     console.log(interpreter.outbox);
 }
 

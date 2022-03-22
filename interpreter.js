@@ -61,6 +61,7 @@ class Interpreter{
                 'dump': ()=>this.dump(),
                 'empty': ()=>{while(this.stack.length > 0)this.outbox.push(this.stack.pop());},
                 'halt': ()=>this.halt,
+                'cycle': ()=>this.stack.push(this.cycles),
             }
         };
     }
@@ -111,7 +112,7 @@ class Interpreter{
             const {opcode, val} = this.token;
             if(opcode === 'mark'){
                 const label = consumeLabel();
-                if(label){this.error(`${opcode} expects `)}
+                if(!label){this.error(`${opcode} expects a valid label`);}
                 else{labels[label] = newTokens.length;}
             }
             else if(!this.isOpcode(opcode)){
